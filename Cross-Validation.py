@@ -7,6 +7,7 @@ Created on Fri May 31 07:30:42 2024
 
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
@@ -15,7 +16,7 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import classification_report, confusion_matrix
 
 # Define the path to your dataset
-dataset_path = 'C:/Users/PIXEL/Desktop/test/C_i5_2/chart_images5_2/'  # Change this to the path where your data is stored
+dataset_path = os.path.join(os.getcwd(), 'chart_images5_2')  # Change this to the path where your data is stored
 # Initialize the ImageDataGenerator
 datagen = ImageDataGenerator(rescale=1./255)
 
@@ -86,7 +87,7 @@ for train_index, test_index in kf.split(X):
     loss_per_fold.append(scores[0])
 
     predictions = model.predict(X_test)
-    predicted_classes = np.argmax(predictions, axis=1)
+    predicted_classes = np.where(predictions > 0.5, 1, 0).flatten()
 
     cm = confusion_matrix(y_test, predicted_classes)
     cr = classification_report(y_test, predicted_classes)

@@ -11,7 +11,8 @@ import mplfinance as mpf
 import os
 import matplotlib.pyplot as plt
 
-dd = 'D:/All Data/model/Data/EURUSD_M15.csv'
+import os
+dd = os.path.join(os.getcwd(), 'EURUSD_M15.csv')
 data = pd.read_csv(dd, delimiter='\t', index_col='Time', parse_dates=True)
 
 data['SMA'] = talib.SMA(data['Close'], timeperiod=20)

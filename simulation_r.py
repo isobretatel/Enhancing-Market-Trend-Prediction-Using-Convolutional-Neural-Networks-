@@ -16,7 +16,7 @@ import mplfinance as mpf
 import os
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import numpy as np
-from keras.models import load_model
+from tensorflow.keras.models import load_model
 from tensorflow.keras.utils import load_img
 import tensorflow as tf
 import shutil
@@ -33,15 +33,19 @@ gpus = tf.config.list_physical_devices('GPU')
 #     for gpu in gpus:
 #           tf.config.experimental.set_memory_growth(gpu, True)
 if gpus: 
-    tf.config.set_logical_device_configuration(
-        gpus[0],
-        [tf.config.LogicalDeviceConfiguration(memory_limit=7492)]
-    )
+    try:
+        tf.config.set_logical_device_configuration(
+            gpus[0],
+            [tf.config.LogicalDeviceConfiguration(memory_limit=7492)]
+        )
+    except RuntimeError as e:
+        # Configuration must be set before GPUs have been initialized
+        print(f"GPU configuration warning: {e}")
 
 logical_gpus = tf.config.list_logical_devices('GPU')
 print(len(gpus), "Physical GPU,", len(logical_gpus), "Logical GPUs")
 
-dd = '/home/hakan/Desktop/Edrees/EURUSD_M15-test.csv'
+dd = os.path.join(os.getcwd(), 'EURUSD_M15-test.csv')
 firstDate="2024-03-01 20:45:00"
 lastDate="2024-10-31 20:45:00"
 
@@ -53,18 +57,20 @@ initialTime_index=find_time_index(firstDate,data)
 finalTime_index=find_time_index(lastDate,data)
 data=data[initialTime_index:finalTime_index]
 
-# output_dir = "test_for_signal"
-# shutil.rmtree(output_dir,ignore_errors=True)
-# os.makedirs(output_dir, exist_ok=True)
-# window_size=5
-# shift_size=2
-# for i in range(0, len(data) - window_size,shift_size):
-#     window = data.iloc[i:i+window_size]
-#     save_path = os.path.join(output_dir, f"{window.iloc[-1].name}.png")
-#     ap = [mpf.make_addplot(window['SMA'], color='blue', secondary_y=False)]
-#     mpf.plot(window, type='candle', style='yahoo', addplot=ap, volume=True, axisoff=True, ylabel='',
-#  savefig=save_path)
-#     plt.close()
+output_dir = "test_for_signal"
+shutil.rmtree(output_dir,ignore_errors=True)
+os.makedirs(output_dir, exist_ok=True)
+window_size=5
+shift_size=2
+for i in range(0, len(data) - window_size,shift_size):
+    window = data.iloc[i:i+window_size]
+    # Replace colons with dashes for Windows compatibility
+    timestamp_str = str(window.iloc[-1].name).replace(':', '-')
+    save_path = os.path.join(output_dir, f"{timestamp_str}.png")
+    ap = [mpf.make_addplot(window['SMA'], color='blue', secondary_y=False)]
+    mpf.plot(window, type='candle', style='yahoo', addplot=ap, volume=True, axisoff=True, ylabel='',
+ savefig=save_path)
+    plt.close()
 
 # Create DataFrame
 data = pd.read_csv(dd, delimiter=',', parse_dates=True)
@@ -84,12 +90,12 @@ from tensorflow.keras.utils import img_to_array
 dataset_path="test_for_signal"
 X=[]
 for name in os.listdir(dataset_path):
-    image1 = load_img(dataset_path  + '/' + name, color_mode = 'rgb', interpolation="bilinear",target_size = (150, 150) )  # MODEL 2 & MODEL 3 (analyzing each image as a whole)
+    image1 = load_img(os.path.join(dataset_path, name), color_mode = 'rgb', interpolation="bilinear",target_size = (150, 150) )  # MODEL 2 & MODEL 3 (analyzing each image as a whole)
     image1 = img_to_array(image1)
     image1 = image1 / 255
     X.append(image1)
 X=np.array(X) 
-model=load_model("chart_classification_model_W5.h5")
+model=load_model("chart_classification_model.h5")
 predictions = model.predict(X)
 
 image_names=os.listdir(dataset_path)
@@ -116,6 +122,14 @@ indicator_trends=signal_label
    
 # Add annotations for up/down labels
 for time, label in zip(indicator_xcoordinates, indicator_trends):
+    # Convert filename back to timestamp format (replace dashes back to colons in time portion)
+    # Format: "2024-10-28 21-45-00" -> "2024-10-28 21:45:00"
+    time_str = str(time)
+    if ' ' in time_str and '-' in time_str.split(' ')[1]:
+        date_part, time_part = time_str.split(' ', 1)
+        time_part = time_part.replace('-', ':')
+        time = f"{date_part} {time_part}"
+    
     # Get the row data for that specific time
     if time in df['Time'].values:
         result = df.isin([time])
@@ -158,31 +172,51 @@ initial_amount_usd = 1000  # Initial amount in USD
 current_amount_usd = initial_amount_usd
 amount_in_euros = 0  # Amount of euros after buying
 number_changes=0
-for i in range(len(indicator_xcoordinates)):
-    time=indicator_xcoordinates[i]
-    if time in df['Time'].values:
-        result = df.isin([time])
-        locations = result.stack()[result.stack()] 
-        row = locations.index[0][0]
-        row=df.loc[row]
-    if indicator_trends[i] == 'U' and current_amount_usd > 0:  # Buy signal   
-        amount_in_euros = current_amount_usd / row['Open']
-        number_changes+=1
-        current_amount_usd = 0  # All money converted to euros
-        print(f"Bought at {time} at price {row['Open']}, amount in euros: {amount_in_euros:.2f}")
-        
-    elif indicator_trends[i] == 'D' and amount_in_euros > 0:  # Sell signal
-        current_amount_usd = amount_in_euros * row['Open']
-        amount_in_euros = 0  # Euros converted back to USD
-        print(f"Sold at {time} at price {row['Open']}, amount in USD: {current_amount_usd:.2f}")
-        number_changes+=1
 
-# Final amount
-if amount_in_euros > 0:  # Convert any remaining euros to USD at the last close price
-    print(f"\nFinal amount in EUR: {amount_in_euros:.2f}")
-    current_amount_usd=amount_in_euros*data['Open'][finalTime_index-1]
-    print(f"\nFinal amount in Dollar: {current_amount_usd:.2f}")
-else:
-    print(f"\nFinal amount in Dollar: {current_amount_usd:.2f}")
+# Open file to write trading results
+with open('trade_result.txt', 'w') as f:
+    f.write(f"\nInitial amount in Dollar: {initial_amount_usd:.2f}\n")
     
-print(f"\nTotal number of buy/sell: {number_changes}")
+    for i in range(len(indicator_xcoordinates)):
+        time=indicator_xcoordinates[i]
+        
+        # Convert filename back to timestamp format (replace dashes back to colons in time portion)
+        time_str = str(time)
+        if ' ' in time_str and '-' in time_str.split(' ')[1]:
+            date_part, time_part = time_str.split(' ', 1)
+            time_part = time_part.replace('-', ':')
+            time = f"{date_part} {time_part}"
+        
+        if time in df['Time'].values:
+            result = df.isin([time])
+            locations = result.stack()[result.stack()] 
+            row = locations.index[0][0]
+            row=df.loc[row]
+            
+            if indicator_trends[i] == 'U' and current_amount_usd > 0:  # Buy signal   
+                amount_in_euros = current_amount_usd / row['Open']
+                number_changes+=1
+                current_amount_usd = 0  # All money converted to euros
+                f.write(f"Bought at {time} at price {row['Open']}, amount in euros: {amount_in_euros:.2f}\n")
+                print(f"Bought at {time} at price {row['Open']}, amount in euros: {amount_in_euros:.2f}")
+                
+            elif indicator_trends[i] == 'D' and amount_in_euros > 0:  # Sell signal
+                current_amount_usd = amount_in_euros * row['Open']
+                amount_in_euros = 0  # Euros converted back to USD
+                f.write(f"Sold at {time} at price {row['Open']}, amount in USD: {current_amount_usd:.2f}\n")
+                print(f"Sold at {time} at price {row['Open']}, amount in USD: {current_amount_usd:.2f}")
+                number_changes+=1
+
+    # Final amount
+    if amount_in_euros > 0:  # Convert any remaining euros to USD at the last close price
+        f.write(f"\nFinal amount in EUR: {amount_in_euros:.2f}\n")
+        print(f"\nFinal amount in EUR: {amount_in_euros:.2f}")
+        current_amount_usd=amount_in_euros*data['Open'][finalTime_index-1]
+        f.write(f"Final amount in Dollar: {current_amount_usd:.2f}\n")
+        print(f"\nFinal amount in Dollar: {current_amount_usd:.2f}")
+    else:
+        f.write(f"Final amount in Dollar: {current_amount_usd:.2f}\n")
+        print(f"\nFinal amount in Dollar: {current_amount_usd:.2f}")
+        
+    f.write(f"Total number of buy/sell: {number_changes}\n")
+    print(f"\nTotal number of buy/sell: {number_changes}")
