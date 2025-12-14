@@ -45,7 +45,7 @@ if gpus:
 logical_gpus = tf.config.list_logical_devices('GPU')
 print(len(gpus), "Physical GPU,", len(logical_gpus), "Logical GPUs")
 
-dd = os.path.join(os.getcwd(), 'EURUSD_M15-test.csv')
+dd = os.path.join(os.getcwd(), 'data-cache', 'EURUSD_M15-test.csv')
 firstDate="2024-03-01 20:45:00"
 lastDate="2024-10-31 20:45:00"
 
@@ -193,18 +193,28 @@ with open('trade_result.txt', 'w') as f:
             row = locations.index[0][0]
             row=df.loc[row]
             
+            # CRITICAL: Avoid data leak - execute trade at NEXT candle's open price
+            # Signal is generated at time T, but we can only execute at time T+1's open
+            signal_idx = df.index.get_loc(row.name) if row.name in df.index else None
+            if signal_idx is not None and signal_idx + 1 < len(df):
+                execution_row = df.iloc[signal_idx + 1]
+                execution_price = execution_row['Open']
+                execution_time = execution_row['Time']
+            else:
+                continue  # Skip if can't get next candle
+            
             if indicator_trends[i] == 'U' and current_amount_usd > 0:  # Buy signal   
-                amount_in_euros = current_amount_usd / row['Open']
+                amount_in_euros = current_amount_usd / execution_price
                 number_changes+=1
                 current_amount_usd = 0  # All money converted to euros
-                f.write(f"Bought at {time} at price {row['Open']}, amount in euros: {amount_in_euros:.2f}\n")
-                print(f"Bought at {time} at price {row['Open']}, amount in euros: {amount_in_euros:.2f}")
+                f.write(f"Bought at {execution_time} at price {execution_price}, amount in euros: {amount_in_euros:.2f}\n")
+                print(f"Bought at {execution_time} at price {execution_price}, amount in euros: {amount_in_euros:.2f}")
                 
             elif indicator_trends[i] == 'D' and amount_in_euros > 0:  # Sell signal
-                current_amount_usd = amount_in_euros * row['Open']
+                current_amount_usd = amount_in_euros * execution_price
                 amount_in_euros = 0  # Euros converted back to USD
-                f.write(f"Sold at {time} at price {row['Open']}, amount in USD: {current_amount_usd:.2f}\n")
-                print(f"Sold at {time} at price {row['Open']}, amount in USD: {current_amount_usd:.2f}")
+                f.write(f"Sold at {execution_time} at price {execution_price}, amount in USD: {current_amount_usd:.2f}\n")
+                print(f"Sold at {execution_time} at price {execution_price}, amount in USD: {current_amount_usd:.2f}")
                 number_changes+=1
 
     # Final amount

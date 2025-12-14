@@ -1,7 +1,33 @@
-/__pycache__/
-/test_for_signal/
-/EURUSD_splitted_w5_s2/
-/chart_images5_1/
-/chart_classification_model.h5
-/test_for_signal_gbp_usd/
-/test_for_signal_pair2/
+# Data cache directory
+data-cache/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Model files
+*.h5
+*.keras
+*.pb
+
+# Generated images and charts
+chart_images*/
+test_for_signal*/
+EURUSD_splitted*/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Results
+trade_result*.txt
+/eur_usd_splitted_w5_s2/
+/profitable_split_EURUSDM15/

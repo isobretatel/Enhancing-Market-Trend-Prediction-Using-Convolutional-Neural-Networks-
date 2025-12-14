@@ -12,32 +12,24 @@ from tensorflow.keras.models import Sequential
 from sklearn.metrics import classification_report, confusion_matrix
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, GlobalMaxPooling2D
-from tensorflow.keras import regularizers
-from tensorflow.keras.optimizers import Adam
+from keras import regularizers
+from keras.optimizers import Adam
 import tensorflow as tf
-import os
 
 gpus = tf.config.list_physical_devices('GPU')
 # if gpus: 
 #     for gpu in gpus:
 #           tf.config.experimental.set_memory_growth(gpu, True)
 if gpus: 
-    try:
-        tf.config.set_logical_device_configuration(
-            gpus[0],
-            [tf.config.LogicalDeviceConfiguration(memory_limit=7492)]
-        )
-    except RuntimeError as e:
-        # Configuration must be set before GPUs have been initialized
-        print(f"GPU configuration warning: {e}")
+    tf.config.set_logical_device_configuration(
+        gpus[0],
+        [tf.config.LogicalDeviceConfiguration(memory_limit=7492)]
+    )
 
 logical_gpus = tf.config.list_logical_devices('GPU')
 print(len(gpus), "Physical GPU,", len(logical_gpus), "Logical GPUs")
-
-# Use relative paths instead of hardcoded absolute paths
-# The pattern detection script creates 'chart_images5_1' folder with 'uptrend' and 'downtrend' subfolders
-input_folder = os.path.join(os.getcwd(), 'chart_images5_1')
-output_folder = os.path.join(os.getcwd(), 'EURUSD_splitted_w5_s2')
+input_folder = '/home/hakan/Desktop/Edrees/EURUSD_Charts'
+output_folder = '/home/hakan/Desktop/Edrees/EURUSD_splitted_w5_s2/'
 
 #Split with a ratio of Train:Val:Test = 60%:20%:20%
 splitfolders.ratio(input_folder, output=output_folder, seed=1337, ratio=(.7, .1, .2), group_prefix=None)  # Default values
@@ -56,14 +48,14 @@ train_datagen = ImageDataGenerator(rescale=1./255,
 test_val_datagen = ImageDataGenerator(rescale=1./255)
 
 train_generator = train_datagen.flow_from_directory(
-    os.path.join(output_folder, 'train'),
+    output_folder + 'train/',
     target_size=(img_height, img_width),
     batch_size=batch_size,
     class_mode='binary',
     interpolation='bilinear')
 
 validation_generator = test_val_datagen.flow_from_directory(
-    os.path.join(output_folder, 'val'),
+    output_folder + 'val/',
     target_size=(img_height, img_width),
     batch_size=batch_size,
     class_mode='binary',
@@ -71,7 +63,7 @@ validation_generator = test_val_datagen.flow_from_directory(
     shuffle=False)
 
 test_generator = test_val_datagen.flow_from_directory(
-    os.path.join(output_folder, 'test'),
+    output_folder + 'test/',
     target_size=(img_height, img_width),
     batch_size=batch_size,
     class_mode='binary',

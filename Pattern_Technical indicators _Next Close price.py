@@ -10,10 +10,56 @@ import pandas as pd
 import mplfinance as mpf
 import os
 import matplotlib.pyplot as plt
+import sys
 
-import os
-dd = os.path.join(os.getcwd(), 'EURUSD_M15.csv')
-data = pd.read_csv(dd, delimiter='\t', index_col='Time', parse_dates=True)
+# Allow CSV file to be specified via command line argument
+if len(sys.argv) > 1:
+    csv_file = sys.argv[1]
+    # If just filename provided, look in data-cache
+    if not os.path.isabs(csv_file) and '/' not in csv_file and '\\' not in csv_file:
+        csv_file = os.path.join(os.getcwd(), 'data-cache', csv_file)
+    elif not os.path.exists(csv_file):
+        csv_file = os.path.join(os.getcwd(), 'data-cache', os.path.basename(csv_file))
+else:
+    # Default to EURUSD_M15.csv
+    csv_file = os.path.join(os.getcwd(), 'data-cache', 'EURUSD_M15.csv')
+
+print(f"Using CSV file: {csv_file}")
+
+# Try different delimiters
+try:
+    data = pd.read_csv(csv_file, delimiter='\t', index_col='Time', parse_dates=True)
+except:
+    try:
+        data = pd.read_csv(csv_file, delimiter=',', index_col='Time', parse_dates=True)
+    except:
+        data = pd.read_csv(csv_file, delimiter=',', index_col=0, parse_dates=True,
+                          names=['Time', 'Open', 'High', 'Low', 'Close', 'Volume'])
+        data.index.name = 'Time'
+
+# Ensure index is datetime
+if not isinstance(data.index, pd.DatetimeIndex):
+    data.index = pd.to_datetime(data.index)
+data = data.sort_index()
+
+# Allow date range filtering via command line arguments
+if len(sys.argv) > 3:
+    first_date = sys.argv[3]
+    if len(sys.argv) > 4:
+        last_date = sys.argv[4]
+    else:
+        last_date = None
+    
+    print(f"Filtering data from {first_date} to {last_date or 'end'}")
+    first_dt = pd.to_datetime(first_date)
+    if last_date:
+        last_dt = pd.to_datetime(last_date)
+        data = data[(data.index >= first_dt) & (data.index <= last_dt)]
+    else:
+        data = data[data.index >= first_dt]
+    
+    print(f"Filtered data range: {data.index[0]} to {data.index[-1]}")
+    print(f"Filtered data rows: {len(data)}")
 
 data['SMA'] = talib.SMA(data['Close'], timeperiod=20)
 
@@ -81,7 +127,12 @@ pattern_funcs = [
     ("Upside/Downside Gap Three Methods", talib.CDLXSIDEGAP3METHODS)
 ]
 
-output_dir = "chart_images5_1"
+# Allow output directory to be specified via command line argument
+if len(sys.argv) > 2:
+    output_dir = sys.argv[2]
+else:
+    # Default output directory
+    output_dir = "chart_images5_1"
 os.makedirs(output_dir, exist_ok=True)
 uptrend_dir = os.path.join(output_dir, "uptrend")
 downtrend_dir = os.path.join(output_dir, "downtrend")
@@ -104,12 +155,17 @@ for i in range(0, len(data) - window_size,shift_size):
 
 
     if pattern_detected:
-        if last_candle_close > sma_last :
+        # Label based on FUTURE price movement
+        if next_candle_close > last_candle_close:
             label = 'uptrend'
-            save_path = os.path.join(uptrend_dir, f"{label}_{i}.png")
-        elif last_candle_close < sma_last:
+            # Use timestamp instead of index for chronological ordering
+            timestamp_str = str(window.iloc[-1].name).replace(':', '-')
+            save_path = os.path.join(uptrend_dir, f"{timestamp_str}.png")
+        elif next_candle_close < last_candle_close:
             label = 'downtrend'
-            save_path = os.path.join(downtrend_dir, f"{label}_{i}.png")
+            # Use timestamp instead of index for chronological ordering
+            timestamp_str = str(window.iloc[-1].name).replace(':', '-')
+            save_path = os.path.join(downtrend_dir, f"{timestamp_str}.png")
         else:
             continue
 

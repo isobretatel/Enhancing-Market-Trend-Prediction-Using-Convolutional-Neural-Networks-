@@ -25,18 +25,19 @@ def parse_trade_results(file_path):
             initial_amount = float(re.search(r'(\d+\.\d+)', line).group(1))
             continue
         
-        # Extract buy transactions
+        # Extract buy transactions (handle different currencies)
         if 'Bought at' in line:
-            match = re.search(r'Bought at (.+?) at price ([\d.]+), amount in euros: ([\d.]+)', line)
+            # Match: "Bought at TIMESTAMP at price PRICE, amount in CURRENCY: AMOUNT"
+            match = re.search(r'Bought at (.+?) at price ([\d.]+), amount in \w+: ([\d.]+)', line)
             if match:
                 timestamp = match.group(1)
                 price = float(match.group(2))
-                amount_eur = float(match.group(3))
+                amount_base = float(match.group(3))
                 transactions.append({
                     'timestamp': timestamp,
                     'type': 'buy',
                     'price': price,
-                    'amount_eur': amount_eur,
+                    'amount_base': amount_base,
                     'amount_usd': None
                 })
         
@@ -51,7 +52,7 @@ def parse_trade_results(file_path):
                     'timestamp': timestamp,
                     'type': 'sell',
                     'price': price,
-                    'amount_eur': None,
+                    'amount_base': None,
                     'amount_usd': amount_usd
                 })
     

@@ -1,3 +1,14 @@
+Accuracy is high, but returns are negative.
+
+1. Accuracy Measures Pattern Recognition, Not Profitability
+The model is trained to classify whether a chart pattern looks like an "uptrend" or "downtrend" based on historical chart images. But:
+
+A correctly classified uptrend doesn't guarantee the price will continue going up
+The model predicts what the pattern looks like, not what will happen next
+2. Label Definition Problem
+Looking at the chart generation code, labels are based on whether the last candle in a window was up or down. This measures the current state, not the future movement.
+
+
 This repository contains a collection of Python scripts that aim to predict the direction of EUR/USD forex prices for the 15-minute time frame using deep learning techniques and technical indicators.
 
 **Files**
@@ -38,7 +49,7 @@ This repository contains a collection of Python scripts that aim to predict the 
 **Usage**
 1. **Load the Dataset**
    
-     Ensure EURUSD_M15.csv is placed in the project directory.
+     Ensure EURUSD_M15.csv is placed in the `data-cache` directory.
 
 2. **Pattern Detection and Technical Indicators**
 
